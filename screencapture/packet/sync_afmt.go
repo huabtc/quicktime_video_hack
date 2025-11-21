@@ -4,8 +4,8 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/danielpaulus/quicktime_video_hack/screencapture/common"
-	"github.com/danielpaulus/quicktime_video_hack/screencapture/coremedia"
+	"github.com/huabtc/quicktime_video_hack/screencapture/common"
+	"github.com/huabtc/quicktime_video_hack/screencapture/coremedia"
 )
 
 // SyncAfmtPacket contains what I think is information about the audio format

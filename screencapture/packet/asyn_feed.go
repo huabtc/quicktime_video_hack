@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/danielpaulus/quicktime_video_hack/screencapture/coremedia"
+	"github.com/huabtc/quicktime_video_hack/screencapture/coremedia"
 )
 
 //AsynCmSampleBufPacket contains a CMSampleBuffer with audio or video data

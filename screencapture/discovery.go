@@ -4,12 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/google/gousb"
 	log "github.com/sirupsen/logrus"
 )
 
-//IosDevice contains a gousb.Device pointer for a found device and some additional info like the device usbSerial
+// IosDevice contains a gousb.Device pointer for a found device and some additional info like the device usbSerial
 type IosDevice struct {
 	SerialNumber      string
 	ProductName       string
@@ -20,8 +21,8 @@ type IosDevice struct {
 	UsbInfo           string
 }
 
-//OpenDevice finds a gousb.Device by using the provided iosDevice.SerialNumber. It returns an open device handle.
-//Opening using VID and PID is not specific enough, as different iOS devices can have identical VID/PID combinations.
+// OpenDevice finds a gousb.Device by using the provided iosDevice.SerialNumber. It returns an open device handle.
+// Opening using VID and PID is not specific enough, as different iOS devices can have identical VID/PID combinations.
 func OpenDevice(ctx *gousb.Context, iosDevice IosDevice) (*gousb.Device, error) {
 	deviceList, err := ctx.OpenDevices(func(desc *gousb.DeviceDesc) bool {
 		return true
@@ -49,7 +50,7 @@ func OpenDevice(ctx *gousb.Context, iosDevice IosDevice) (*gousb.Device, error) 
 	return usbDevice, nil
 }
 
-//ReOpen creates a new Ios device, opening it using VID and PID, using the given context
+// ReOpen creates a new Ios device, opening it using VID and PID, using the given context
 func (d IosDevice) ReOpen(ctx *gousb.Context) (IosDevice, error) {
 
 	dev, err := OpenDevice(ctx, d)
@@ -73,26 +74,50 @@ const (
 // FindIosDevices finds iOS devices connected on USB ports by looking for their
 // USBMux compatible Bulk Endpoints
 func FindIosDevices() ([]IosDevice, error) {
-	ctx, cleanUp := createContext()
+	ctx, cleanUp, err := createContext()
+	if err != nil {
+		return nil, err
+	}
 	defer cleanUp()
 	return findIosDevices(ctx, isValidIosDevice)
 }
 
-func createContext() (*gousb.Context, func()) {
-	ctx := gousb.NewContext()
-	log.Debugf("Opened usbcontext:%v", ctx)
-	cleanUp := func() {
-		err := ctx.Close()
-		if err != nil {
-			log.Fatalf("Error closing usb context: %v", ctx)
-		}
+var (
+	globalCtx     *gousb.Context
+	globalCtxOnce sync.Once
+	globalCtxErr  error
+)
+
+// createContext creates (or reuses) a single global libusb context and protects against libusb_init panics.
+func createContext() (*gousb.Context, func(), error) {
+	globalCtxOnce.Do(func() {
+		globalCtx, globalCtxErr = newUSBContext()
+	})
+	if globalCtxErr != nil {
+		return nil, func() {}, globalCtxErr
 	}
-	return ctx, cleanUp
+	// No-op cleanup because we keep the context alive for the whole process.
+	return globalCtx, func() {}, nil
+}
+
+func newUSBContext() (ctx *gousb.Context, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("libusb init failed: %v", r)
+			return
+		}
+	}()
+	ctx = gousb.NewContext()
+	log.Debugf("Opened usbcontext:%v", ctx)
+	return ctx, nil
 }
 
 // FindIosDevice finds a iOS device by usbSerial or picks the first one if usbSerial == ""
 func FindIosDevice(usbSerial string) (IosDevice, error) {
-	ctx, cleanUp := createContext()
+	ctx, cleanUp, err := createContext()
+	if err != nil {
+		return IosDevice{}, err
+	}
 	defer cleanUp()
 	list, err := findIosDevices(ctx, isValidIosDevice)
 	if err != nil {
@@ -153,7 +178,7 @@ func mapToIosDevice(devices []*gousb.Device) ([]IosDevice, error) {
 	return iosDevices, nil
 }
 
-//PrintDeviceDetails returns a list of device details ready to be JSON converted.
+// PrintDeviceDetails returns a list of device details ready to be JSON converted.
 func PrintDeviceDetails(devices []IosDevice) []map[string]interface{} {
 	result := make([]map[string]interface{}, len(devices))
 	for k, device := range devices {
@@ -181,16 +206,33 @@ func isValidIosDeviceWithActiveQTConfig(desc *gousb.DeviceDesc) bool {
 func findConfigurations(desc *gousb.DeviceDesc) (int, int) {
 	var muxConfigIndex = -1
 	var qtConfigIndex = -1
+	var fallbackQtConfigIndex = -1
 
 	for _, v := range desc.Configs {
-		if isMuxConfig(v) && !isQtConfig(v) {
+		isQt := isQtConfig(v)
+		if isMuxConfig(v) && muxConfigIndex == -1 {
 			muxConfigIndex = v.Number
 			log.Debugf("Found MuxConfig %d for Device %s", muxConfigIndex, desc.String())
 		}
-		if isQtConfig(v) {
+		if isQt {
 			qtConfigIndex = v.Number
 			log.Debugf("Found QTConfig %d for Device %s", qtConfigIndex, desc.String())
 		}
+		// Some devices expose the streaming interface on the same config as usbmux
+		// without using the 0x2A subclass. Fall back to the first vendor interface
+		// with bulk IN+OUT endpoints so we can still activate streaming.
+		if !isQt && fallbackQtConfigIndex == -1 {
+			if ok, _ := findVendorBulkInterface(v); ok {
+				fallbackQtConfigIndex = v.Number
+				log.Debugf("Using vendor bulk fallback config %d for Device %s", fallbackQtConfigIndex, desc.String())
+			}
+		}
+	}
+	if qtConfigIndex == -1 && fallbackQtConfigIndex != -1 {
+		qtConfigIndex = fallbackQtConfigIndex
+	}
+	if muxConfigIndex == -1 && qtConfigIndex != -1 {
+		muxConfigIndex = qtConfigIndex
 	}
 	return muxConfigIndex, qtConfigIndex
 }
@@ -219,12 +261,40 @@ func findInterfaceForSubclass(confDesc gousb.ConfigDesc, subClass gousb.Class) (
 	return false, -1
 }
 
-//IsActivated returns a boolean that is true when this device was enabled for screen mirroring and false otherwise.
+// findVendorBulkInterface returns the first interface that exposes vendor class with both bulk in/out endpoints.
+func findVendorBulkInterface(confDesc gousb.ConfigDesc) (bool, int) {
+	for _, iface := range confDesc.Interfaces {
+		for _, alt := range iface.AltSettings {
+			if alt.Class != gousb.ClassVendorSpec {
+				continue
+			}
+			hasIn := false
+			hasOut := false
+			for _, ep := range alt.Endpoints {
+				if ep.TransferType != gousb.TransferTypeBulk {
+					continue
+				}
+				if ep.Direction == gousb.EndpointDirectionIn {
+					hasIn = true
+				}
+				if ep.Direction == gousb.EndpointDirectionOut {
+					hasOut = true
+				}
+			}
+			if hasIn && hasOut {
+				return true, iface.Number
+			}
+		}
+	}
+	return false, -1
+}
+
+// IsActivated returns a boolean that is true when this device was enabled for screen mirroring and false otherwise.
 func (d *IosDevice) IsActivated() bool {
 	return d.QTConfigIndex != -1
 }
 
-//DetailsMap contains all the info for a device in a map ready to be JSON encoded
+// DetailsMap contains all the info for a device in a map ready to be JSON encoded
 func (d *IosDevice) DetailsMap() map[string]interface{} {
 	return map[string]interface{}{
 		"deviceName":               d.ProductName,
@@ -234,10 +304,10 @@ func (d *IosDevice) DetailsMap() map[string]interface{} {
 	}
 }
 
-//Usually iosDevices have a 40 character USB serial which equals the usbSerial used in usbmuxd, Xcode etc.
-//There is an exception, some devices like the Xr and Xs have a 24 character USB serial. Usbmux, Xcode etc.
-//however insert a dash after the 8th character in this case. To be compatible with other MacOS X and iOS tools,
-//we insert the dash here as well.
+// Usually iosDevices have a 40 character USB serial which equals the usbSerial used in usbmuxd, Xcode etc.
+// There is an exception, some devices like the Xr and Xs have a 24 character USB serial. Usbmux, Xcode etc.
+// however insert a dash after the 8th character in this case. To be compatible with other MacOS X and iOS tools,
+// we insert the dash here as well.
 func Correct24CharacterSerial(usbSerial string) string {
 	usbSerial = strings.Trim(usbSerial, "\x00")
 	if len(usbSerial) == 24 {
@@ -248,11 +318,11 @@ func Correct24CharacterSerial(usbSerial string) string {
 
 const sixteenTimesZero = "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 
-//ValidateUdid checks if a given udid is 25 or 40 characters long.
-//25 character udids must be of format xxxxxxxx-xxxxxxxxxxxxxxxx.
-//Serialnumbers on the usb host contain no dashes. As a convenience ValidateUdid
-//returns the udid with the dash removed so it can be used
-//as a correct USB SerialNumber.
+// ValidateUdid checks if a given udid is 25 or 40 characters long.
+// 25 character udids must be of format xxxxxxxx-xxxxxxxxxxxxxxxx.
+// Serialnumbers on the usb host contain no dashes. As a convenience ValidateUdid
+// returns the udid with the dash removed so it can be used
+// as a correct USB SerialNumber.
 func ValidateUdid(udid string) (string, error) {
 	udidLength := len(udid)
 	if !(udidLength == 25 || udidLength == 40) {

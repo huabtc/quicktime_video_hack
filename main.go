@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/danielpaulus/go-ios/ios"
-	"github.com/danielpaulus/quicktime_video_hack/screencapture"
-	"github.com/danielpaulus/quicktime_video_hack/screencapture/coremedia"
-	"github.com/danielpaulus/quicktime_video_hack/screencapture/diagnostics"
-	"github.com/danielpaulus/quicktime_video_hack/screencapture/gstadapter"
 	"github.com/docopt/docopt-go"
+	"github.com/huabtc/quicktime_video_hack/screencapture"
+	"github.com/huabtc/quicktime_video_hack/screencapture/coremedia"
+	"github.com/huabtc/quicktime_video_hack/screencapture/diagnostics"
+	"github.com/huabtc/quicktime_video_hack/screencapture/gstadapter"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -181,8 +181,8 @@ The commands work as following:
 	}
 }
 
-//findDevice grabs the first device on the host for a empty --udid
-//or tries to find the provided device otherwise
+// findDevice grabs the first device on the host for a empty --udid
+// or tries to find the provided device otherwise
 func findDevice(udid string) (screencapture.IosDevice, error) {
 	if udid == "" {
 		return screencapture.FindIosDevice("")
@@ -329,17 +329,17 @@ func activate(device screencapture.IosDevice) {
 }
 
 func deactivate(device screencapture.IosDevice) {
-        log.Debugf("Disabling device: %v", device)
-        var err error
-        device, err = screencapture.DisableQTConfig(device)
-        if err != nil {
-                printErrJSON(err, "Error disabling QT config")
-                return
-        }
+	log.Debugf("Disabling device: %v", device)
+	var err error
+	device, err = screencapture.DisableQTConfig(device)
+	if err != nil {
+		printErrJSON(err, "Error disabling QT config")
+		return
+	}
 
-        printJSON(map[string]interface{}{
-                "device_activated": device.DetailsMap(),
-        })
+	printJSON(map[string]interface{}{
+		"device_activated": device.DetailsMap(),
+	})
 }
 
 func record(h264FilePath string, wavFilePath string, device screencapture.IosDevice) {
@@ -382,10 +382,14 @@ func record(h264FilePath string, wavFilePath string, device screencapture.IosDev
 
 func startWithConsumer(consumer screencapture.CmSampleBufConsumer, device screencapture.IosDevice, audioOnly bool) {
 	var err error
-	device, err = screencapture.EnableQTConfig(device)
-	if err != nil {
-		printErrJSON(err, "Error enabling QT config")
-		return
+	if !device.IsActivated() {
+		device, err = screencapture.EnableQTConfig(device)
+		if err != nil {
+			printErrJSON(err, "Error enabling QT config")
+			return
+		}
+	} else {
+		log.Debug("QT config already active, skipping activation")
 	}
 
 	adapter := screencapture.UsbAdapter{}
@@ -403,10 +407,14 @@ func startWithConsumer(consumer screencapture.CmSampleBufConsumer, device screen
 
 func startWithConsumerDump(consumer screencapture.CmSampleBufConsumer, device screencapture.IosDevice, dumpPath string) {
 	var err error
-	device, err = screencapture.EnableQTConfig(device)
-	if err != nil {
-		printErrJSON(err, "Error enabling QT config")
-		return
+	if !device.IsActivated() {
+		device, err = screencapture.EnableQTConfig(device)
+		if err != nil {
+			printErrJSON(err, "Error enabling QT config")
+			return
+		}
+	} else {
+		log.Debug("QT config already active, skipping activation")
 	}
 
 	inboundMessagesFile, err := os.Create("inbound-" + dumpPath)
@@ -446,17 +454,66 @@ func waitForSigInt(stopSignalChannel chan interface{}) {
 }
 
 func checkDeviceIsPaired(device screencapture.IosDevice) {
-	dev, err := ios.GetDevice(screencapture.Correct24CharacterSerial(device.SerialNumber))
-	if err != nil {
-		printErrJSON(err, "device not found, is it still connected?")
-		os.Exit(1)
+	baseSerial := strings.Trim(device.SerialNumber, "\x00")
+	candidates := []string{baseSerial, screencapture.Correct24CharacterSerial(device.SerialNumber)}
+	if !strings.Contains(baseSerial, "-") && len(baseSerial) == 24 {
+		// Some devices show up as 24 chars on USB but 40 chars over usbmux/lockdownd.
+		// Append the zero padding variant to increase the chance that go-ios finds it.
+		candidates = append(candidates, baseSerial+strings.Repeat("0", 16))
+		dashed := fmt.Sprintf("%s-%s", baseSerial[:8], baseSerial[8:])
+		candidates = append(candidates, dashed)
+		candidates = append(candidates, dashed+strings.Repeat("0", 16))
 	}
-	allValues, err := ios.GetValuesPlist(dev)
-	if err != nil {
-		printErrJSON(err, "failed getting deviceinfo, you need to pair the device before running qvh")
-		os.Exit(1)
+	// Deduplicate while preserving order.
+	seen := map[string]struct{}{}
+	uniqueCandidates := make([]string, 0, len(candidates))
+	for _, c := range candidates {
+		if c == "" {
+			continue
+		}
+		if _, ok := seen[c]; ok {
+			continue
+		}
+		seen[c] = struct{}{}
+		uniqueCandidates = append(uniqueCandidates, c)
 	}
-	log.Infof("found %s %s for udid %s", allValues["DeviceName"], allValues["ProductVersion"], dev.Properties.SerialNumber)
+
+	var lastErr error
+	for _, udid := range uniqueCandidates {
+		dev, err := ios.GetDevice(udid)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		allValues, err := ios.GetValuesPlist(dev)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		log.Infof("found %s %s for udid %s", allValues["DeviceName"], allValues["ProductVersion"], dev.Properties.SerialNumber)
+		return
+	}
+	// Try listing devices as a fallback before giving up.
+	devices, listErr := ios.ListDevices()
+	if listErr == nil {
+		for _, d := range devices.DeviceList {
+			sn := strings.Trim(d.Properties.SerialNumber, "\x00")
+			for _, cand := range uniqueCandidates {
+				if sn == cand || strings.Contains(sn, cand) || strings.Contains(cand, sn) {
+					allValues, err := ios.GetValuesPlist(d)
+					if err == nil {
+						log.Infof("found %s %s for udid %s", allValues["DeviceName"], allValues["ProductVersion"], d.Properties.SerialNumber)
+						return
+					}
+				}
+			}
+		}
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("no device candidates tried:%v", uniqueCandidates)
+	}
+	log.Warnf("failed verifying pairing, tried UDID variants %v, lastErr: %v", uniqueCandidates, lastErr)
+	log.Warn("continuing anyway; if record fails, please ensure the device is paired with this host (trust prompt on device)")
 }
 
 func printErrJSON(err error, msg string) {
@@ -473,7 +530,7 @@ func printJSON(output map[string]interface{}) {
 	println(string(text))
 }
 
-//this is to ban these irritating "2021/04/29 14:27:59 handle_events: error: libusb: interrupted [code -10]" libusb messages
+// this is to ban these irritating "2021/04/29 14:27:59 handle_events: error: libusb: interrupted [code -10]" libusb messages
 type LogrusWriter int
 
 const interruptedError = "interrupted [code -10]"

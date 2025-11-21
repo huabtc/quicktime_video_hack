@@ -1,6 +1,6 @@
 package screencapture
 
-import "github.com/danielpaulus/quicktime_video_hack/screencapture/coremedia"
+import "github.com/huabtc/quicktime_video_hack/screencapture/coremedia"
 
 //CmSampleBufConsumer is a simple interface with one function that consumes CMSampleBuffers
 type CmSampleBufConsumer interface {

@@ -4,10 +4,10 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/danielpaulus/quicktime_video_hack/screencapture/coremedia"
+	"github.com/huabtc/quicktime_video_hack/screencapture/coremedia"
 )
 
-//SyncCvrpPacket contains all info from a CVRP packet sent by the device
+// SyncCvrpPacket contains all info from a CVRP packet sent by the device
 type SyncCvrpPacket struct {
 	ClockRef       CFTypeID
 	CorrelationID  uint64
@@ -15,7 +15,7 @@ type SyncCvrpPacket struct {
 	Payload        coremedia.StringKeyDict
 }
 
-//NewSyncCvrpPacketFromBytes parses a SyncCvrpPacket from a []byte
+// NewSyncCvrpPacketFromBytes parses a SyncCvrpPacket from a []byte
 func NewSyncCvrpPacketFromBytes(data []byte) (SyncCvrpPacket, error) {
 	remainingBytes, clockRef, correlationID, err := ParseSyncHeader(data, CVRP)
 	if err != nil {
@@ -37,7 +37,7 @@ func NewSyncCvrpPacketFromBytes(data []byte) (SyncCvrpPacket, error) {
 	return packet, nil
 }
 
-//NewReply creates a RPLY packet containing the given clockRef and serializes it to a []byte
+// NewReply creates a RPLY packet containing the given clockRef and serializes it to a []byte
 func (sp SyncCvrpPacket) NewReply(clockRef CFTypeID) []byte {
 	return clockRefReply(clockRef, sp.CorrelationID)
 }
