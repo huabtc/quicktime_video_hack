@@ -26,8 +26,7 @@ func EnableQTConfig(device IosDevice) (IosDevice, error) {
 
 	sendQTConfigControlRequest(usbDevice)
 
-	var i int
-	for {
+	for attempt := 1; attempt <= 10; attempt++ {
 		log.Debugf("Checking for active QT config for %s", usbSerial)
 
 		err = ctx.Close()
@@ -42,12 +41,11 @@ func EnableQTConfig(device IosDevice) (IosDevice, error) {
 			log.Debugf("device not found:%s", err)
 			continue
 		}
-		i++
-		if i > 10 {
-			log.Debug("Failed activating config")
-			return IosDevice{}, fmt.Errorf("could not activate Quicktime Config for %s", usbSerial)
-		}
 		break
+	}
+	if err != nil {
+		log.Debug("Failed activating config")
+		return IosDevice{}, fmt.Errorf("could not activate Quicktime Config for %s", usbSerial)
 	}
 	log.Debugf("QTConfig for %s activated", usbSerial)
 	return device, err

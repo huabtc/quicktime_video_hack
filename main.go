@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/danielpaulus/go-ios/ios"
-	"github.com/danielpaulus/quicktime_video_hack/screencapture"
-	"github.com/danielpaulus/quicktime_video_hack/screencapture/coremedia"
-	"github.com/danielpaulus/quicktime_video_hack/screencapture/diagnostics"
-	"github.com/danielpaulus/quicktime_video_hack/screencapture/gstadapter"
 	"github.com/docopt/docopt-go"
+	"github.com/huabtc/quicktime_video_hack/screencapture"
+	"github.com/huabtc/quicktime_video_hack/screencapture/coremedia"
+	"github.com/huabtc/quicktime_video_hack/screencapture/diagnostics"
+	"github.com/huabtc/quicktime_video_hack/screencapture/gstadapter"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -181,8 +181,8 @@ The commands work as following:
 	}
 }
 
-//findDevice grabs the first device on the host for a empty --udid
-//or tries to find the provided device otherwise
+// findDevice grabs the first device on the host for a empty --udid
+// or tries to find the provided device otherwise
 func findDevice(udid string) (screencapture.IosDevice, error) {
 	if udid == "" {
 		return screencapture.FindIosDevice("")
@@ -329,17 +329,17 @@ func activate(device screencapture.IosDevice) {
 }
 
 func deactivate(device screencapture.IosDevice) {
-        log.Debugf("Disabling device: %v", device)
-        var err error
-        device, err = screencapture.DisableQTConfig(device)
-        if err != nil {
-                printErrJSON(err, "Error disabling QT config")
-                return
-        }
+	log.Debugf("Disabling device: %v", device)
+	var err error
+	device, err = screencapture.DisableQTConfig(device)
+	if err != nil {
+		printErrJSON(err, "Error disabling QT config")
+		return
+	}
 
-        printJSON(map[string]interface{}{
-                "device_activated": device.DetailsMap(),
-        })
+	printJSON(map[string]interface{}{
+		"device_activated": device.DetailsMap(),
+	})
 }
 
 func record(h264FilePath string, wavFilePath string, device screencapture.IosDevice) {
@@ -389,7 +389,7 @@ func startWithConsumer(consumer screencapture.CmSampleBufConsumer, device screen
 	}
 
 	adapter := screencapture.UsbAdapter{}
-	stopSignal := make(chan interface{})
+	stopSignal := make(chan interface{}, 1)
 	waitForSigInt(stopSignal)
 
 	mp := screencapture.NewMessageProcessor(&adapter, stopSignal, consumer, audioOnly)
@@ -437,10 +437,18 @@ func waitForSigInt(stopSignalChannel chan interface{}) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	go func() {
+		sigCount := 0
 		for sig := range c {
+			sigCount++
 			log.Debugf("Signal received: %s", sig)
-			var stopSignal interface{}
-			stopSignalChannel <- stopSignal
+			select {
+			case stopSignalChannel <- struct{}{}:
+			default:
+			}
+			if sigCount > 1 {
+				log.Warn("Second interrupt received, exiting immediately")
+				os.Exit(130)
+			}
 		}
 	}()
 }
@@ -473,7 +481,7 @@ func printJSON(output map[string]interface{}) {
 	println(string(text))
 }
 
-//this is to ban these irritating "2021/04/29 14:27:59 handle_events: error: libusb: interrupted [code -10]" libusb messages
+// this is to ban these irritating "2021/04/29 14:27:59 handle_events: error: libusb: interrupted [code -10]" libusb messages
 type LogrusWriter int
 
 const interruptedError = "interrupted [code -10]"

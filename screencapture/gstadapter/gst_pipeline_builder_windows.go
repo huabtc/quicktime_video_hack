@@ -1,5 +1,5 @@
-//go:build darwin && !nogstreamer
-// +build darwin,!nogstreamer
+//go:build windows && !nogstreamer
+// +build windows,!nogstreamer
 
 package gstadapter
 
@@ -23,8 +23,10 @@ func setUpVideoPipeline(pl *gst.Pipeline) *gst.AppSrc {
 	h264parse := gst.ElementFactoryMake("h264parse", "h264parse_01")
 	checkElem(h264parse, "h264parse")
 
-	avdecH264 := gst.ElementFactoryMake("vtdec", "vtdec_01")
-	checkElem(avdecH264, "vtdec_01")
+	// On Windows, use avdec_h264 (software decoder) or d3d11h264dec (hardware decoder if available)
+	// Fallback to avdec_h264 for compatibility
+	avdecH264 := gst.ElementFactoryMake("avdec_h264", "avdec_h264_01")
+	checkElem(avdecH264, "avdec_h264_01")
 
 	queue2 := gst.ElementFactoryMake("queue", "queue_12")
 	checkElem(queue2, "queue_12")
@@ -35,6 +37,8 @@ func setUpVideoPipeline(pl *gst.Pipeline) *gst.AppSrc {
 	queue3 := gst.ElementFactoryMake("queue", "queue_13")
 	checkElem(queue3, "queue_13")
 
+	// On Windows, use autovideosink which will automatically select the best video sink
+	// (usually d3dvideosink or dshowvideosink)
 	sink := gst.ElementFactoryMake("autovideosink", "autovideosink_01")
 	// setting this to true, creates extremely choppy video
 	// I probably messed up something regarding the time stamps
@@ -52,3 +56,5 @@ func setUpVideoPipeline(pl *gst.Pipeline) *gst.AppSrc {
 	queue3.Link(sink)
 	return asrc
 }
+
+

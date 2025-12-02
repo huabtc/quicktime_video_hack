@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/danielpaulus/quicktime_video_hack/screencapture/gstadapter"
+	"github.com/huabtc/quicktime_video_hack/screencapture/gstadapter"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )

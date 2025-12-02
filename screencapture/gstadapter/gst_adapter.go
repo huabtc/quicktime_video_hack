@@ -1,3 +1,6 @@
+//go:build !nogstreamer
+// +build !nogstreamer
+
 package gstadapter
 
 import (
@@ -7,12 +10,12 @@ import (
 	"runtime"
 
 	"github.com/danielpaulus/gst"
-	"github.com/danielpaulus/quicktime_video_hack/screencapture/coremedia"
+	"github.com/huabtc/quicktime_video_hack/screencapture/coremedia"
 	"github.com/lijo-jose/glib"
 	log "github.com/sirupsen/logrus"
 )
 
-//GstAdapter contains the AppSrc for accessing Gstreamer.
+// GstAdapter contains the AppSrc for accessing Gstreamer.
 type GstAdapter struct {
 	videoAppSrc      *gst.AppSrc
 	audioAppSrc      *gst.AppSrc
@@ -26,8 +29,8 @@ const videoAppSrcTargetElementName = "video_target"
 const MP3 = "mp3"
 const OGG = "ogg"
 
-//New creates a new MAC OSX compatible gstreamer pipeline that will play device video and audio
-//in a nice little window :-D
+// New creates a new MAC OSX compatible gstreamer pipeline that will play device video and audio
+// in a nice little window :-D
 func New() *GstAdapter {
 	log.Info("Starting Gstreamer..")
 	pl := gst.NewPipeline("QT_Hack_Pipeline")
@@ -68,8 +71,8 @@ func NewWithAudioPipeline(outfile string, audiotype string) (*GstAdapter, error)
 	return &gsta, nil
 }
 
-//NewWithCustomPipeline will parse the given pipelineString, connect the videoAppSrc to whatever element has the name "video_target" and the audioAppSrc to "audio_target"
-//see also: https://gstreamer.freedesktop.org/documentation/application-development/appendix/programs.html?gi-language=c
+// NewWithCustomPipeline will parse the given pipelineString, connect the videoAppSrc to whatever element has the name "video_target" and the audioAppSrc to "audio_target"
+// see also: https://gstreamer.freedesktop.org/documentation/application-development/appendix/programs.html?gi-language=c
 func NewWithCustomPipeline(pipelineString string) (*GstAdapter, error) {
 	log.Info("Starting Gstreamer..")
 	log.WithFields(log.Fields{"custom_pipeline": pipelineString}).Debug("Starting Gstreamer with custom pipeline")
@@ -109,9 +112,9 @@ func NewWithCustomPipeline(pipelineString string) (*GstAdapter, error) {
 	return &gsta, nil
 }
 
-//Stop sends an EOS (end of stream) event downstream the gstreamer pipeline.
-//Some Elements need this to correctly finish. F.ex. writing mp4 video without
-//sending EOS will result in a broken mp4 file
+// Stop sends an EOS (end of stream) event downstream the gstreamer pipeline.
+// Some Elements need this to correctly finish. F.ex. writing mp4 video without
+// sending EOS will result in a broken mp4 file
 func (gsta GstAdapter) Stop() {
 	log.Info("Stopping Gstreamer..")
 	if gsta.audioAppSrc != nil {
@@ -147,7 +150,7 @@ func (gsta GstAdapter) Stop() {
 	log.Info("Gstreamer finished")
 }
 
-//runGlibMainLoop starts the glib Mainloop necessary for the video player to work on MAC OS X.
+// runGlibMainLoop starts the glib Mainloop necessary for the video player to work on MAC OS X.
 func runGlibMainLoop() {
 	go func() {
 		//See: https://golang.org/pkg/runtime/#LockOSThread
@@ -218,7 +221,7 @@ func checkElem(e *gst.Element, name string) {
 	}
 }
 
-//Consume will transfer AV data into a Gstreamer AppSrc
+// Consume will transfer AV data into a Gstreamer AppSrc
 func (gsta *GstAdapter) Consume(buf coremedia.CMSampleBuffer) error {
 	if buf.MediaType == coremedia.MediaTypeSound {
 		if gsta.firstAudioSample {

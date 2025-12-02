@@ -1,4 +1,5 @@
-// +build linux
+//go:build linux && !nogstreamer
+// +build linux,!nogstreamer
 
 package gstadapter
 

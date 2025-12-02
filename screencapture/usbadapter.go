@@ -4,14 +4,16 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/google/gousb"
+	"github.com/huabtc/quicktime_video_hack/screencapture/packet"
 	log "github.com/sirupsen/logrus"
 )
 
-//UsbAdapter reads and writes from AV Quicktime USB Bulk endpoints
+// UsbAdapter reads and writes from AV Quicktime USB Bulk endpoints
 type UsbAdapter struct {
 	outEndpoint   *gousb.OutEndpoint
 	Dump          bool
@@ -19,7 +21,7 @@ type UsbAdapter struct {
 	DumpInWriter  io.Writer
 }
 
-//WriteDataToUsb implements the UsbWriter interface and sends the byte array to the usb bulk endpoint.
+// WriteDataToUsb implements the UsbWriter interface and sends the byte array to the usb bulk endpoint.
 func (usbAdapter *UsbAdapter) WriteDataToUsb(bytes []byte) {
 	_, err := usbAdapter.outEndpoint.Write(bytes)
 	if err != nil {
@@ -33,8 +35,8 @@ func (usbAdapter *UsbAdapter) WriteDataToUsb(bytes []byte) {
 	}
 }
 
-//StartReading claims the AV Quicktime USB Bulk endpoints and starts reading until a stopSignal is sent.
-//Every received data is added to a frameextractor and when it is complete, sent to the UsbDataReceiver.
+// StartReading claims the AV Quicktime USB Bulk endpoints and starts reading until a stopSignal is sent.
+// Every received data is added to a frameextractor and when it is complete, sent to the UsbDataReceiver.
 func (usbAdapter *UsbAdapter) StartReading(device IosDevice, receiver UsbDataReceiver, stopSignal chan interface{}) error {
 	ctx, cleanUp := createContext()
 	defer cleanUp()
@@ -101,6 +103,7 @@ func (usbAdapter *UsbAdapter) StartReading(device IosDevice, receiver UsbDataRec
 	}
 	log.Debug("Endpoint claimed")
 	log.Infof("Device '%s' USB connection ready, waiting for ping..", device.SerialNumber)
+	go usbAdapter.kickstartPingAfterDelay()
 	go func() {
 		lengthBuffer := make([]byte, 4)
 		for {
@@ -172,6 +175,13 @@ func findBulkEndpoint(setting gousb.InterfaceSetting, direction gousb.EndpointDi
 		}
 	}
 	return 0, 0, errors.New("Inbound Bulkendpoint not found")
+}
+
+func (usbAdapter *UsbAdapter) kickstartPingAfterDelay() {
+	// Some devices appear to wait for a host-initiated ping. Send one if nothing arrived shortly after connect.
+	time.Sleep(2 * time.Second)
+	log.Debug("Sending host-initiated ping to kickstart session")
+	usbAdapter.WriteDataToUsb(packet.NewPingPacketAsBytes())
 }
 
 func findAndClaimQuickTimeInterface(config *gousb.Config) (*gousb.Interface, error) {

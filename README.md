@@ -44,6 +44,37 @@ without needing one of these expensive MacOS X computers or the hard to use Quic
 2. If you want to build/run locally then copy paste the dependencies from this [Dockerfile](https://github.com/danielpaulus/quicktime_video_hack/blob/master/docker/Dockerfile.debian) and install with apt.
 3. Git clone the repo and start hacking or download the latest release and run the binary :-D
 
+### 2.3 Windows
+
+**重要提示**: Windows 支持需要安装 libusb 驱动，这可能会与 Apple 官方驱动冲突。
+
+1. **安装 Go**: 从 [golang.org](https://golang.org/dl/) 下载并安装 Go (1.16 或更高版本)
+
+2. **安装 Gstreamer**: 
+   - 下载并安装 [Gstreamer Windows 安装包](https://gstreamer.freedesktop.org/download/)
+   - 确保安装完整版本（包含所有插件：base, good, bad, ugly）
+   - 将 Gstreamer 的 `bin` 目录添加到系统 PATH 环境变量
+
+3. **安装 libusb 驱动**:
+   - 下载 [libusb-win32](http://sourceforge.net/projects/libusb-win32/) 或 [Zadig](https://zadig.akeo.ie/)
+   - 使用驱动安装工具为你的 iOS 设备安装 libusb 驱动
+   - **注意**: 安装 libusb 驱动后，iTunes 可能无法识别设备，需要卸载驱动才能恢复 iTunes 功能
+
+4. **构建项目**:
+   ```bash
+   git clone https://github.com/danielpaulus/quicktime_video_hack.git
+   cd quicktime_video_hack
+   go build -o qvh.exe main.go
+   ```
+
+5. **运行**: 
+   ```bash
+   qvh.exe devices
+   qvh.exe gstreamer
+   ```
+
+**参考**: Windows 版本的实现参考了 [chotgpt/quicktime_video_hack_windows](https://github.com/chotgpt/quicktime_video_hack_windows) 项目
+
 ## 3. Usage
 
 - For just displaying the screen run `qvh gstreamer` and it will work.
@@ -59,5 +90,13 @@ I have written some documentation here [doc/technical_documentation.md](https://
 So if you are just interested in the protocol or if you want to implement this in a different programming language than golang, read the docs.
 Also I have extracted binary dumps of all messages for writing unit tests and re-develop this in your preferred language in a test driven style.
 
-I have given up on windows support :-)
-~~[Port to Windows](https://github.com/danielpaulus/quicktime_video_hack/tree/windows/windows) (I don't know why, but still people use Windows nowadays)~~ Did not find a way to do it
+### Windows Support
+
+Windows 支持已添加！请参考 [2.3 Windows](#23-windows) 安装说明。
+
+**已知限制**:
+- 需要安装 libusb 驱动，可能与 Apple 官方驱动冲突
+- Gstreamer 在 Windows 上的性能可能不如 macOS/Linux
+- 首次使用需要手动安装驱动并配置环境
+
+**致谢**: Windows 支持的实现参考了 [chotgpt/quicktime_video_hack_windows](https://github.com/chotgpt/quicktime_video_hack_windows) 项目的思路

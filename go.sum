@@ -1,6 +1,4 @@
 github.com/Masterminds/semver v1.5.0/go.mod h1:MB6lktGJrhw8PrUyiEoblNEGEQ+RzHPF078ddwwvV3Y=
-github.com/danielpaulus/go-ios v1.0.12 h1:B0pirHZibKBanZgxZGrOwoejLlEb9zgtde7eHORxLVA=
-github.com/danielpaulus/go-ios v1.0.12/go.mod h1:k+X7QB2ffFOhTkly/nNwvV1VIysif1MWS1s8GgYXpU4=
 github.com/danielpaulus/go-ios v1.0.13 h1:MFc/QOcNXRY2vv/KRijES/sI0+aHTXfzgEeK6qsZOOU=
 github.com/danielpaulus/go-ios v1.0.13/go.mod h1:k+X7QB2ffFOhTkly/nNwvV1VIysif1MWS1s8GgYXpU4=
 github.com/danielpaulus/gst v0.0.0-20200201205042-e6d2974fceb8 h1:+XiTgRoo1bCA3paC4e/0WYWI7+J2O7hR/IYuSikANMw=
@@ -10,8 +8,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815 h1:bWDMxwH3px2JBh6AyO7hdCn/PkvCZXii8TGj7sbtEbQ=
 github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815/go.mod h1:WwZ+bS3ebgob9U8Nd0kOddGdZWjyMGR8Wziv+TBNwSE=
-github.com/google/gousb v2.1.0+incompatible h1:ApzMDjF3FeO219QwWybJxYfFhXQzPLOEy0o+w9k5DNI=
-github.com/google/gousb v2.1.0+incompatible/go.mod h1:Tl4HdAs1ThE3gECkNwz+1MWicX6FXddhJEw7L8jRDiI=
+github.com/google/gousb v1.1.3 h1:xt6M5TDsGSZ+rlomz5Si5Hmd/Fvbmo2YCJHN+yGaK4o=
+github.com/google/gousb v1.1.3/go.mod h1:GGWUkK0gAXDzxhwrzetW592aOmkkqSGcj5KLEgmCVUg=
 github.com/google/uuid v1.1.2 h1:EVhdT+1Kseyi1/pUmXKaFxYsDNy9RQYkMWRH68J/W7Y=
 github.com/google/uuid v1.1.2/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/jessevdk/go-flags v1.4.0/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
@@ -32,6 +30,7 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/sirupsen/logrus v1.6.0 h1:UBcNElsrwanuuMsnGSlYmtmgbb23qDR5dG+6X6Oo89I=
 github.com/sirupsen/logrus v1.6.0/go.mod h1:7uNnSEd1DgxDLC74fIahvMZmmYsHGZGEOFrfsX/uA88=
+github.com/stretchr/objx v0.1.0 h1:4G4v2dO3VZwixGIRoQ5Lfboy6nUhCyYzaqnIAPPhYs4=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=
 github.com/stretchr/testify v1.6.1 h1:hDPOHmpOpP40lSULcqw7IrRb/u7w6RpDC9399XyoNd0=
